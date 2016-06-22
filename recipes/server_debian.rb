@@ -21,6 +21,18 @@ node['postgresql']['server']['packages'].each do |pg_pack|
   package pg_pack
 end
 
+execute 'Remove default cluster if not point for correct folder' do
+  command 'export LC_ALL=C; /usr/bin/pg_dropcluster --stop ' + node['postgresql']['version'] + ' main'
+  action :run
+  not_if { cmd = shell_out!("/usr/bin/pg_lsclusters -h | grep #{node['postgresql']['dir']} | wc -l"); cmd.stdout.to_i == 1 }
+end
+
+execute 'Set locale and Create cluster' do
+  command 'export LC_ALL=C; /usr/bin/pg_createcluster -d ' + node['postgresql']['dir'] + ' --start ' + node['postgresql']['version'] + ' main'
+  action :run
+  not_if { ::File.directory?('/etc/postgresql/' + node['postgresql']['version'] + '/main') }
+end
+
 include_recipe "postgresql::server_conf"
 
 service "postgresql" do
@@ -29,8 +41,4 @@ service "postgresql" do
   action [:enable, :start]
 end
 
-execute 'Set locale and Create cluster' do
-  command 'export LC_ALL=C; /usr/bin/pg_createcluster --start ' + node['postgresql']['version'] + ' main'
-  action :run
-  not_if { ::File.directory?('/etc/postgresql/' + node['postgresql']['version'] + '/main') }
-end
+

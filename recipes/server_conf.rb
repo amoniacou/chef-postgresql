@@ -18,7 +18,7 @@
 change_notify = node['postgresql']['server']['config_change_notify']
 
 # There are some configuration items which depend on correctly evaluating the intended version being installed
-if node['platform_family'] == 'debian'
+postgresql_conf_path, postgresql_hba_conf = if node['platform_family'] == 'debian'
 
   node.set['postgresql']['config']['hba_file'] = "/etc/postgresql/#{node['postgresql']['version']}/main/pg_hba.conf"
   node.set['postgresql']['config']['ident_file'] = "/etc/postgresql/#{node['postgresql']['version']}/main/pg_ident.conf"
@@ -36,10 +36,12 @@ if node['platform_family'] == 'debian'
     node.set['postgresql']['config']['ssl_cert_file'] = '/etc/ssl/certs/ssl-cert-snakeoil.pem' if node['postgresql']['version'].to_f >= 9.2
     node.set['postgresql']['config']['ssl_key_file'] = '/etc/ssl/private/ssl-cert-snakeoil.key' if node['postgresql']['version'].to_f >= 9.2
   end
-
+  ["/etc/postgresql/#{node['postgresql']['version']}/main/postgresql.conf", node['postgresql']['config']['hba_file']]
+else
+  ["#{node['postgresql']['dir']}/postgresql.conf", "#{node['postgresql']['dir']}/pg_hba.conf"]
 end
 
-template "#{node['postgresql']['dir']}/postgresql.conf" do
+template postgresql_conf_path do
   source "postgresql.conf.erb"
   owner "postgres"
   group "postgres"
@@ -47,10 +49,10 @@ template "#{node['postgresql']['dir']}/postgresql.conf" do
   notifies change_notify, 'service[postgresql]', :immediately
 end
 
-template "#{node['postgresql']['dir']}/pg_hba.conf" do
+template postgresql_hba_conf do
   source "pg_hba.conf.erb"
   owner "postgres"
   group "postgres"
-  mode 00600
+  mode 0600
   notifies change_notify, 'service[postgresql]', :immediately
 end
